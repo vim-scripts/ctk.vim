@@ -1,0 +1,10 @@
+This is a mirror of http://www.vim.org/scripts/script.php?script_id=2618
+
+ctk is a fast compile and run plugin for Vim. 
+
+-- you can add a modeline in your source code to modifie the behavior of ctk. 
+-- you can press a hotkey to invoke compiler.
+-- you can press a key to compiler and run your program.
+-- you can add some trigger word to change your compiler's behavior. just like :CC debug
+
+install it, and press :h ctk to see details help

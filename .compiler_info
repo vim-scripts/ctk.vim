@@ -1,0 +1,54 @@
+" compiler infomation file
+" Maintainer: StarWing
+" Last Change: 2009-04-14 17:09:26
+" need ctk {{{1
+
+if !exists('g:loaded_ctk')
+    finish
+endif
+let s:cpo_save = &cpo
+set cpo&vim
+
+" Common default info {{{1
+
+au FileType c,cpp SetDefaultInfo
+    	\ cmd='!$cc $input $flags -o $output'
+    	\ run='!$output' input='%:.' output='%:t:r'
+    	\ asm_run=':exe "sp ".escape("+drop $output", "\\")'
+	\ asm_output='$output.asm'
+    	\ debug_run='!gdb -q $output'
+
+" filetype C {{{1
+
+au FileType c let b:{g:ctk_ext_var} = 'c'
+au FileType c SetCompilerInfo gcc
+    	\ title='GNU C Compiler'
+    	\ cc='gcc' flags='-Wall' cmdmap='<m-c>' runmap='<m-1> <f5>'
+    	\ asm_title='GCC to ASM' asm_flags='-S $flags'
+    	\ debug_title='GCC with debug' debug_flags='-ggdb $flags'
+
+au FileType c SetCompilerInfo vc6  
+    	\ title='Microsoft Visual C'
+    	\ cc='cl' flags='-W4' runmap='<m-2> <f6>'
+    	\ asm_title='Microsoft VC to ASM' asm_flags='/FAs $flags'
+
+" filetype C++ {{{1
+
+au FileType cpp let b:{g:ctk_ext_var} = 'cpp'
+au FileType cpp SetCompilerInfo g++
+    	\ title='GNU Compiler Collection - C++'
+    	\ cc='g++' flags='-Wall' cmdmap='<m-c>' runmap='<m-1> <f5>'
+    	\ asm_title='G++ to ASM' asm_flags='-S $flags'
+    	\ debug_title='G++ with debug' debug_flags='-ggdb $flags'
+
+au FileType cpp SetCompilerInfo vc++
+    	\ title='Microsoft Visual C++'
+    	\ cc='cl' flags='-W4' runmap='<m-2> <f6>'
+    	\ asm_title='Microsoft VC++ to ASM'
+    	\ asm_flags='/FAs $flags'
+
+" }}}1
+" terminational works {{{1
+let &cpo = s:cpo_save
+unlet s:cpo_save " }}}1
+" vim: ff=unix ft=vim fdm=marker sw=4 ts=8 sta
