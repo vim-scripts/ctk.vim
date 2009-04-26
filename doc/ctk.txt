@@ -57,6 +57,10 @@ CTK commands						*ctk-commands*
 		compiler index. you can see it in :ListCompiler command
 		|:ListCompiler|. spec means how you want the compiler worked.
 		it will be discussed in |ctk-spec-attr|.
+		
+		if the compiler command is executed a extern program, the
+		quickfix window will open if compiler return nonzero.
+		otherwise, the compiler output will display, if any.
 
 							      *ctk-RUN* *:RUN*
 :[N]RUN {spec}
@@ -64,6 +68,12 @@ CTK commands						*ctk-commands*
 		source code after compiling or the index [N] or {spec} isn't
 		same with ones when you invoke compiler, the compiler will be
 		invoked first to compile your code again.
+
+			NOTE: if the compiler command is ":foobar" (that is,
+			      exec a Vim command) and it has output, the Run
+			      command will not executed. you should run :RUN
+			      again. if you don't want this side-effect. just
+			      use :silent .... in compiler command.
 
 						    *ctk-AddFlags* *:AddFlags*
 :AddFlags {flags}
@@ -127,13 +137,25 @@ you can use command :AddFlags to add a modeline in your file |:AddFlags|.
 
 there are several example of modeline: >
 
- /* cc: output='foobar' */
- /* cc: cc=#cl# flags=## */
+ /* cc: output='foobar' */  : set output to foobar
+
+ /* cc: cc=#cl# flags=## */ : set compiler to cl (cmd='$cc $input $flags -o
+			      $output')
+
  /* cc-vc6: flags+='/HAs' */
- /* cc: run='!$output <data' use input data when exec program */
+			    : add /HAs into flags, only effect when you invoke
+			      the compiler named 'vc6'
+
+ /* cc: run='!$output <data' */
+			    : change run command to '!$output <data', that is,
+			      use a default input for your program.
+
  -- cc: cc='ghc' haskell type comments
  {- cc: cc='ghc' -} -- haskell type comments
  // cc: flags='' C++ type comments
+
+			    : modeline support any kind of commnets, as if
+			      they contain 'cc:' or 'cc-name:'
 <
 
 ==============================================================================
