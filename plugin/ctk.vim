@@ -131,14 +131,23 @@ function! s:get_escaped_list(str)
 endfunction
 
 function! ctk:set_filename() " {{{2
-    if &ft == '' && expand('%') != '' && exists('b:ctk_generated_name')
+    " delete filetype, auto delete generated name
+    if &ft == '' && exists('b:ctk_generated_name')
         silent! noau 0f
         unlet b:ctk_generated_name
-        call Decho('s:set_filename: delete the fname now!')
+"        call Decho('s:set_filename: delete the fname now!')
     endif
-    if &ft == 'Decho' | return | endif
+
+    " user change the name, delete ctk_generated_name
+    if exists('b:ctk_generated_name') && b:ctk_generated_name[1] == &ft
+        unlet! b:ctk_generated_name
+        return
+    endif
+
+    " otherwise, user changed the filetype
+"    if &ft == 'Decho' | return | endif
     if &ft == '' || &bt != '' | return | endif
-    call Dfunc('s:set_filename()')
+"    call Dfunc('s:set_filename()')
 
     if exists('b:'.g:ctk_ext_var) | let ext = b:{g:ctk_ext_var}
     elseif &sua != '' | let ext = &sua[1:]
@@ -146,7 +155,7 @@ function! ctk:set_filename() " {{{2
     else | return
     endif
 
-    call Decho('ext = "'.ext.'"')
+"    call Decho('ext = "'.ext.'"')
     let tempdir = get(b:, 'ctk_tempdir', g:ctk_tempdir)
     if !isdirectory(tempdir) && exists('*mkdir')
         call mkdir(tempdir, 'p')
@@ -155,7 +164,7 @@ function! ctk:set_filename() " {{{2
         let tempdir = '.'
     endif
     let tempdir = fnamemodify(tempdir, ':p')
-    call Decho('tempdir = "'.tempdir.'"')
+"    call Decho('tempdir = "'.tempdir.'"')
 
     if exists('b:ctk_tempdir')
         let b:ctk_tempdir = tempdir
@@ -172,20 +181,20 @@ function! ctk:set_filename() " {{{2
         let idx += 1
     endwhile
     let g:ctk_idx = idx + 1
-    call Decho('fname = "'.eval(fname).'.'.ext.'"')
+"    call Decho('fname = "'.eval(fname).'.'.ext.'"')
 
     if getcwd() == $VIMRUNTIME
-        call Decho('now we are in $VIMRUNTIME, just out of it...')
+"        call Decho('now we are in $VIMRUNTIME, just out of it...')
         exec 'lcd '.tempdir
-        call Decho('now we are in "'.getcwd().'"')
+"        call Decho('now we are in "'.getcwd().'"')
     endif
 
     silent exec 'file '.simplify(fnamemodify(tempdir.glob('/').
                 \ eval(fname).'.'.ext, ':.'))
 
-    let b:ctk_generated_name = expand('%:p')
-    call Decho('generated fname is "'.b:ctk_generated_name.'"')
-    call Dret('s:set_filename')
+    let b:ctk_generated_name = [expand('%:p'), &ft]
+"    call Decho('generated fname is "'.string(b:ctk_generated_name).'"')
+"    call Dret('s:set_filename')
 endfunction
 
 function! ctk:compile(count, ...) " {{{2
@@ -194,7 +203,7 @@ function! ctk:compile(count, ...) " {{{2
         redraw | echo 'Nothing Done'
         return 1
     endif
-    call Dfunc('s:compile(count = '.a:count.', '.string(a:000).')')
+"    call Dfunc('s:compile(count = '.a:count.', '.string(a:000).')')
 
     let ci = b:{s:ci}
     let spec = (a:0 != 0 && a:1 != '' ? a:1.'_' : '')
@@ -207,7 +216,7 @@ function! ctk:compile(count, ...) " {{{2
     redraw
     if type(cmd) != type('')
         echo "can't compiling with spec=".spec.'cmd'
-        call Dret("s:compile : can't compiling with spec = ".spec)
+"        call Dret("s:compile : can't compiling with spec = ".spec)
         return
     endif
     echo 'Compiling ...'
@@ -231,7 +240,7 @@ function! ctk:compile(count, ...) " {{{2
             endif
         endif
 
-        call Dret('s:compile : '.v:shell_error)
+"        call Dret('s:compile : '.v:shell_error)
         return v:shell_error
     else
         if res != ''
@@ -249,7 +258,7 @@ function! ctk:run(count, ...) " {{{2
                 \ ) && call('ctk:compile', [a:count] + a:000)
         return 1
     endif
-    call Dfunc('s:run(count = '.a:count.', '.string(a:000).')')
+"    call Dfunc('s:run(count = '.a:count.', '.string(a:000).')')
 
     exec bufwinnr(bufnr).'wincmd w'
     let spec = (a:0 == 0 || a:1 == '' ? '' : a:1.'_')
@@ -257,7 +266,7 @@ function! ctk:run(count, ...) " {{{2
 
     if type(cmd) != type('')
         redraw | echo "can't exec program with spec=".spec.'run'
-        call Dret("s:run : can't exec program with spec = ".spec)
+"        call Dret("s:run : can't exec program with spec = ".spec)
         return
     endif
     let cmd = s:make_cmd(cmd, spec)
@@ -276,7 +285,7 @@ function! ctk:run(count, ...) " {{{2
         call feedkeys("\<NL>", 't')
     endif
 
-    call Dret('s:run')
+"    call Dret('s:run')
 endfunction
 
 function! ctk:add_flags(flags, count) " {{{2
@@ -301,7 +310,7 @@ function! ctk:add_flags(flags, count) " {{{2
 endfunction
 
 function! ctk:set_default_info(cmdarg) " {{{2
-    call Dfunc('s:set_default_info(cmdarg = "'.a:cmdarg.'")')
+"    call Dfunc('s:set_default_info(cmdarg = "'.a:cmdarg.'")')
     let def_info = {}
     if !exists(s:ci_name)
         let b:{s:ci} = {}
@@ -321,11 +330,11 @@ function! ctk:set_default_info(cmdarg) " {{{2
         endif
     endfor
 
-    call Dret('s:set_default_info')
+"    call Dret('s:set_default_info')
 endfunction
 
 function! ctk:set_compiler_info(cmdarg, bang) " {{{2
-    call Dfunc('s:set_compiler_info(cmdarg = "'.a:cmdarg.'")')
+"    call Dfunc('s:set_compiler_info(cmdarg = "'.a:cmdarg.'")')
     if !exists(s:ci_name)
         let b:{s:ci} = {'list':[]}
     elseif !has_key(b:{s:ci}, 'list')
@@ -335,13 +344,13 @@ function! ctk:set_compiler_info(cmdarg, bang) " {{{2
     " empty command
     if a:cmdarg == ''
         if a:bang == '!' " delete all
-            call Decho('delete all')
+"            call Decho('delete all')
             for info in b:{s:ci}.list
                 silent! exec info.unmap
             endfor
             let b:{s:ci}.list = []
         endif
-        return Dret('s:set_compiler_info')
+"        return Dret('s:set_compiler_info')
     endif
 
     " find name and others, mlist = [all, name, infos]
@@ -369,14 +378,14 @@ function! ctk:set_compiler_info(cmdarg, bang) " {{{2
         let dict = {'cmdmap': 'compile', 'runmap': 'run'}
         for key in keys(dict)
             if !has_key(info, key) | continue | endif
-            call Decho('setup '.key)
+"            call Decho('setup '.key)
             for mkey in s:get_escaped_list(info[key])
                 let cpos = stridx(mkey, ':')
                 for mode in split(cpos <= 0 ? 'nvi' : mkey[:cpos - 1], '\zs')
                     try | exec mode.'noremap <unique> '.mkey[cpos+1:].
                                 \ ' <C-\><C-N>:call ctk:'.dict[key].'('.(idx + 1).')<CR>'
                         let info.unmap .= mode.'unmap '.mkey[cpos+1:].'|'
-                        call Decho(mode.'map '.mkey[cpos+1:].' success!')
+"                        call Decho(mode.'map '.mkey[cpos+1:].' success!')
                     catch | endtry
                 endfor
             endfor
@@ -396,8 +405,8 @@ function! ctk:set_compiler_info(cmdarg, bang) " {{{2
         call s:list_compiler(mlist[1])
     endif
 
-    call Decho('>> now info = '.string(info))
-    call Dret('s:set_compiler_info')
+"    call Decho('>> now info = '.string(info))
+"    call Dret('s:set_compiler_info')
 endfunction
 
 function! ctk:list_compiler(name, ...) " {{{2
@@ -464,7 +473,7 @@ endfunction
 
 function! s:set_cur_info(info) " {{{2
     if expand('%') == '' | return | endif
-    call Dfunc('s:set_cur_info(info = '.a:info.name.')')
+"    call Dfunc('s:set_cur_info(info = '.a:info.name.')')
     let cur_info = copy(a:info)
     for var in ['cmd', 'run', 'un']
         silent! unlet! cur_info[var.'map']
@@ -472,7 +481,7 @@ function! s:set_cur_info(info) " {{{2
     let b:{s:ci}.cur_info = cur_info
 
     if exists('b:ctk_generated_name')
-                \ && b:ctk_generated_name == expand('%:p')
+                \ && b:ctk_generated_name[0] == expand('%:p')
         let cur_info.output = g:ctk_defoutput
     endif
 
@@ -488,12 +497,12 @@ function! s:set_cur_info(info) " {{{2
     endif
 
     " change input/output into filelist
-    call Decho('set the IO flags')
+"    call Decho('set the IO flags')
     for key in ['input', 'output']
         let val = ''
         for file in s:get_escaped_list(s:get_specarg('',
                     \ 'default', s:def_attr[key]))
-            call Decho(key.'.file = '.file)
+"            call Decho(key.'.file = '.file)
             let file = file =~ '^[#%]\%(:.\)*$'
                         \ ? fnamemodify(expand('%'), file[1:])
                         \ : fnamemodify(file, ':.')
@@ -505,17 +514,17 @@ function! s:set_cur_info(info) " {{{2
         let cur_info[key] = matchstr(val, '^\s*\zs.\{-}\ze\s*$')
     endfor
 
-    call Decho('now cur_info = '.string(cur_info))
-    call Dret('s:set_cur_info')
+"    call Decho('now cur_info = '.string(cur_info))
+"    call Dret('s:set_cur_info')
 endfunction
 
 function! s:read_modeline(begin, end) " {{{2
-    call Dfunc('s:read_modeline(begin = '.a:begin.', end = '.a:end.')')
+"    call Dfunc('s:read_modeline(begin = '.a:begin.', end = '.a:end.')')
     let pos = winsaveview()
 
     call cursor(a:begin, 1)
     while search(s:pat_modeline, '', a:end) != 0
-        call Decho('find a modeline in line '.line('.'))
+"        call Decho('find a modeline in line '.line('.'))
         let mlist = matchlist(getline('.'), s:pat_modeline)
         if mlist[1] == '' || b:{s:ci}.cur_info.name =~ '^\V'.escape(mlist[1], '\')
             call substitute(mlist[2], s:pat_mlvar,
@@ -524,11 +533,11 @@ function! s:read_modeline(begin, end) " {{{2
     endwhile
 
     call winrestview(pos)
-    call Dret('s:read_modeline')
+"    call Dret('s:read_modeline')
 endfunction
 
 function! s:sub_modeline() " {{{2
-    call Decho('let cur_info['.submatch(1).'] '.submatch(3).'= "'.
+"    call Decho('let cur_info['.submatch(1).'] '.submatch(3).'= "'.
                 \ submatch(5).'"')
 
     if submatch(3) != ''
@@ -537,7 +546,7 @@ function! s:sub_modeline() " {{{2
         if type(val) != type('')
             call s:echoerr("modeline: can't find '".
                         \ submatch(1)."' in current info")
-            call Dret('ctk:process_modeline')
+"            call Dret('ctk:process_modeline')
             return
         endif
 
@@ -549,29 +558,29 @@ endfunction
 
 function! s:make_cmd(cmd, spec) " {{{2
     if !has_key(b:{s:ci}, 'cur_info') | return | endif
-    call Dfunc('s:make_cmd(cmd = "'.a:cmd.'", spec = "'.a:spec.'"')
+"    call Dfunc('s:make_cmd(cmd = "'.a:cmd.'", spec = "'.a:spec.'"')
 
     let cmd = substitute(a:cmd, '$\l\+', '\=s:sub_repvar(a:spec)', 'g')
     if cmd !~ '^[:*]'
-        call Decho('this is a executable cmd')
+"        call Decho('this is a executable cmd')
         let exe = matchstr(cmd, '^!\=\zs.\{-}\ze\(\s\|$\)')
-        call Decho('exe = '.exe)
+"        call Decho('exe = '.exe)
         if glob(exe) != '' && !executable(exe)
                     \ && executable('./'.exe)
             let cmd = './'.(cmd[0] == '!' ? cmd[1:] : cmd)
         endif
     endif
     if cmd !~ '^[!:*]' | let cmd = '!'.cmd | endif
-    call Dret('s:make_cmd : '.cmd)
+"    call Dret('s:make_cmd : '.cmd)
     return cmd
 endfunction
 
 function! s:run_cmd(cmdarg) " {{{2
     if !has_key(b:{s:ci}, 'cur_info') | return | endif
-    call Dfunc('s:run_cmd(cmdarg = '.a:cmdarg.')')
+"    call Dfunc('s:run_cmd(cmdarg = '.a:cmdarg.')')
 
     let mlist = matchlist(a:cmdarg, '\v^([!:*])=(.*)$')
-    call Decho('mlist = '.string(mlist[:2]))
+"    call Decho('mlist = '.string(mlist[:2]))
     if mlist[1] == '!' || mlist[1] == ''
         let output = system(mlist[2])
     endif
@@ -585,7 +594,7 @@ function! s:run_cmd(cmdarg) " {{{2
         let output = eval(mlist[2])
     endif
 
-    call Dret('s:run_cmd : '.output)
+"    call Dret('s:run_cmd : '.output)
     return output
 endfunction
 
@@ -653,11 +662,11 @@ function! s:find_info(name) " {{{2
 endfunction
 
 function! s:sub_info(info) " {{{2
-    let name = has_key(a:info, 'name') ? a:info.name : 'noname' "Decho
-    call Dfunc('s:sub_info(info = '.name.')')
-    call Decho('let '.name.'.'.submatch(1).' = "'.submatch(3).'"')
+"    let name = has_key(a:info, 'name') ? a:info.name : 'noname' "Decho
+"    call Dfunc('s:sub_info(info = '.name.')')
+"    call Decho('let '.name.'.'.submatch(1).' = "'.submatch(3).'"')
     let a:info[submatch(1)] = submatch(3)
-    call Dret('s:sub_info')
+"    call Dret('s:sub_info')
 endfunction
 
 function! s:sub_repvar(spec) " {{{2
@@ -665,7 +674,7 @@ function! s:sub_repvar(spec) " {{{2
     let default = b:{s:ci}.default
 
     let val = s:get_specarg(a:spec, submatch(0)[1:], '')
-    call Decho('val = "'.val.'"')
+"    call Decho('val = "'.val.'"')
 
     let mstr = matchstr(val, '$\l\+')
     while mstr != ''
@@ -696,7 +705,7 @@ endfunction " }}}2
 
 let &cpo = s:cpo_save
 unlet s:cpo_save
-set debug=beep " Decho
+"set debug=beep " Decho
 
 " }}}1
 " vim: ff=unix ft=vim fdm=marker sw=4 ts=8 et sta nu
