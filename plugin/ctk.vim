@@ -131,22 +131,25 @@ function! s:get_escaped_list(str)
 endfunction
 
 function! ctk:set_filename() " {{{2
-    " delete filetype, auto delete generated name
-    if &ft == '' && exists('b:ctk_generated_name')
-        silent! noau 0f
-        unlet b:ctk_generated_name
-"        call Decho('s:set_filename: delete the fname now!')
-    endif
+    if exists('b:ctk_generated_name')
+        " delete filetype, auto delete generated name
+        if &ft == ''
+"            call Decho('s:set_filename: delete the fname now!')
+            silent! noau 0f
+        endif
 
-    " user change the name, delete ctk_generated_name
-    if exists('b:ctk_generated_name') && b:ctk_generated_name[1] == &ft
-        unlet! b:ctk_generated_name
+        " user change the name, delete ctk_generated_name
+        if (b:ctk_generated_name[1] == &ft
+                    \ && b:ctk_generated_name[0] != expand('%:p')) || &ft == ''
+"            call Decho('s:set_filename: user changed the name!')
+            unlet! b:ctk_generated_name
+            return
+        endif
+    elseif &ft ==? 'decho' || &ft == '' || &bt != '' || expand('%') != ''
+        " otherwise, user changed the filetype
         return
     endif
 
-    " otherwise, user changed the filetype
-"    if &ft == 'Decho' | return | endif
-    if &ft == '' || &bt != '' | return | endif
 "    call Dfunc('s:set_filename()')
 
     if exists('b:'.g:ctk_ext_var) | let ext = b:{g:ctk_ext_var}
@@ -173,14 +176,10 @@ function! ctk:set_filename() " {{{2
     endif
 
     let fname = get(b:, 'ctk_autofname', g:ctk_autofname)
-    if !exists('g:ctk_idx')
-        let g:ctk_idx = 1
-    endif
-    let idx = g:ctk_idx
+    let idx = 1
     while filereadable(tempdir.'/'.eval(fname).'.'.ext)
         let idx += 1
     endwhile
-    let g:ctk_idx = idx + 1
 "    call Decho('fname = "'.eval(fname).'.'.ext.'"')
 
     if getcwd() == $VIMRUNTIME
@@ -228,25 +227,25 @@ function! ctk:compile(count, ...) " {{{2
 
     let cfile = [msg, cmd, ''] + split(res, "\<NL>")
 
-    redraw
     if is_shell
+"        call Decho('A shell command')
         let cfile += [ci.cur_info.name.' returned '.v:shell_error]
+
+        redraw
+        echo 'Compile' (v:shell_error ? 'Fail' : 'Successd')
+        call writefile(cfile, &errorfile) | cgetfile
+
         if res != ''
-            echo 'Compile' (v:shell_error ? 'Fail' : 'Successd')
-            if res != ''
-                call writefile(cfile, &errorfile)
-                cgetfile | if v:shell_error != 0 | copen
-                else | cwindow | endif
-            endif
+            if v:shell_error != 0 | copen
+            else | cwindow | endif
         endif
 
 "        call Dret('s:compile : '.v:shell_error)
         return v:shell_error
-    else
-        if res != ''
-            echo join(cfile, "\n")
-            return 1
-        endif
+    elseif res != ''
+        redraw
+        echo join(cfile, "\n")
+        return 1
     endif
 endfunction
 
