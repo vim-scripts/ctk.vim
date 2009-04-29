@@ -235,10 +235,8 @@ function! ctk:compile(count, ...) " {{{2
         echo 'Compile' (v:shell_error ? 'Fail' : 'Successd')
         call writefile(cfile, &errorfile) | cgetfile
 
-        if res != ''
-            if v:shell_error != 0 | copen
-            else | cwindow | endif
-        endif
+        if v:shell_error != 0 | copen | else | cwindow | endif
+        if res != '' && v:shell_error == 0 | cclose | endif
 
 "        call Dret('s:compile : '.v:shell_error)
         return v:shell_error
