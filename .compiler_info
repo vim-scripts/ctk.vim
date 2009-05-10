@@ -1,6 +1,6 @@
 " compiler infomation file
 " Maintainer: StarWing
-" Last Change: 2009-04-14 17:09:26
+" Last Change: 2009-05-10 13:41:26
 " need ctk {{{1
 
 if !exists('g:loaded_ctk')
@@ -9,12 +9,30 @@ endif
 let s:cpo_save = &cpo
 set cpo&vim
 
+function! ctk:split_open(fname) " {{{1
+    if !bufexists(a:fname)
+	if exists('*fnameescape')
+	    let fname = fnameescape(a:fname)
+	else
+	    let fname = escape(a:fname, ' \|')
+	endif
+	redir => l:null
+	silent exec "sp " . fname
+	redir END
+    endif
+    exec bufwinnr(a:fname).'wincmd w'
+    let ar_save = &ar
+    set ar
+    checktime
+    let &ar = ar_save
+endfunction
+
 " Common default info {{{1
 
 au FileType c,cpp SetDefaultInfo
     	\ cmd='!$cc $input $flags -o $output'
     	\ run='!$output' input='%:.' output='%:t:r'
-    	\ asm_run=':exe "sp ".escape("+drop $output", "\\")'
+    	\ asm_run=":call ctk:split_open(${q-output})"
 	\ asm_output='$output.asm'
     	\ debug_run='!gdb -q $output'
 
