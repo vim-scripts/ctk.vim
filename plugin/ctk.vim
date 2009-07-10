@@ -216,8 +216,7 @@ let s:def_attr = {'cmd': ':echo "Done Nothing"', 'run': ':echo "Done Nothing"',
 
 " patterns {{{2
 
-let s:pat_cmdtag = '$\(\l\+\)'
-let s:pat_cmdtag_quote = '${q-\(\l\+\)}'
+let s:pat_cmdtag = '\v\$(\l+)|\$\{(q-)=(\l+)}'
 let s:pat_com = ':\zs[^,]\+'
 let s:pat_com_begin = 's.\=:\zs[^,]\+\ze'
 let s:pat_com_end = 'e.\=:\zs[^,]\+\ze'
@@ -231,8 +230,6 @@ let s:pat_info ='\v^\s*(.{-})%(\s+(.{-})\s*)=$'
 let s:pat_info_var = '\v(\w+)\s*(\+)=\=\s*(\S)(.{-})\3'
 let s:pat_modeline = '\v<cc%(-([^:]*))=:\s*(.*)'
 let s:pat_shellcmdtitle = '^!\=\zs.\{-}\ze\(\s\|$\)'
-
-" }}}2
 
 " ============================================================
 " utility functions {{{1
@@ -313,6 +310,17 @@ function! s:sub_info(info) " {{{2
     let a:info[submatch(1)] = val.submatch(4)
 endfunction
 
+function! s:expand_var(entry, default) " {{{2
+    let key = submatch(1) == '' ? submatch(3) : submatch(1)
+    let val = s:get_entry_val(a:default ? '' : a:entry, key, submatch(0))
+
+    if submatch(2) == 'q-'
+        let escape_val = escape(val, '\"')
+        return a:default ? escape_val : '"'.escape_val.'"'
+    endif
+
+    return val
+endfunction
 function! s:expand_fname(fname, mode) " {{{2
 "    call Dfunc('s:expand_fname(fname = '.a:fname.', mode = '.a:mode.')')
     let fname = expand(a:fname)
@@ -418,9 +426,9 @@ function! s:set_default_info(cmdarg) " {{{1
 
     call substitute(a:cmdarg, s:pat_info_var, '\=s:sub_info(def_info)', 'g')
 
-    if has_key(def_info, g:ctk_ext_var)
-        let b:{g:ctk_ext_var} = def_info[g:ctk_ext_var]
-        unlet def_info[g:ctk_ext_var]
+    if has_key(def_info, 'ft_ext')
+        let b:{g:ctk_ext_var} = def_info['ft_ext']
+        unlet def_info['ft_ext']
     endif
 
 "    call Dret('s:set_default_info')
@@ -683,15 +691,9 @@ function! s:make_cmd(cmd, entry) " {{{1
     if !has_key(b:{s:ci}, 'cur_info') | return | endif
 "    call Dfunc('s:make_cmd(cmd = "'.a:cmd.'", entry = "'.a:entry.'"')
 
-    let cmd_get_entry = 's:get_entry_val(a:entry, submatch(1), submatch(0))'
-    let cmd_get_default = 's:get_entry_val("", submatch(1), submatch(0))'
     " replace cmdtags and filename
-    let cmd = substitute(a:cmd, s:pat_cmdtag, '\='.cmd_get_entry, 'g')
-    let cmd = substitute(cmd, s:pat_cmdtag, '\='.cmd_get_default, 'g')
-    let cmd = substitute(cmd, s:pat_cmdtag_quote, "\\='\"'.escape(".
-                \ cmd_get_entry.", '\\\"').'\"'", 'g')
-    let cmd = substitute(cmd, s:pat_cmdtag, '\=escape('.
-                \ cmd_get_default.', ''\"'')', 'g')
+    let cmd = substitute(a:cmd, s:pat_cmdtag, '\=s:expand_var(a:entry, 0)', 'g')
+    let cmd = substitute(cmd, s:pat_cmdtag, '\=s:expand_var(a:entry, 1)', 'g')
     let cmd = substitute(cmd, s:pat_filespec_nonescape,
                 \ '\=s:expand_fname(submatch(0), cmd[0])', 'g')
     let cmd = substitute(cmd, s:pat_filespec_escape, '', 'g')
