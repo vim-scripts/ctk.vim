@@ -47,18 +47,18 @@ if !exists('g:loaded_ctk')
     command! -bar StopCTK call s:stop_ctk()
     command! -bar EditCompilerInfo exec 'drop '.globpath(&rtp, g:ctk_cinfo_file)
 
-    command! -nargs=* -complete=customlist,s:info_name_complete -bar -count=0 
-	    \ ListCompiler call s:ctk_call('s:list_compiler', [<q-args>, <count>])
     command! -nargs=* -complete=custom,s:info_item_complete -bang
-	    \ SetCompilerInfo call Set_compiler_info(<q-args>, '<bang>')
+	    \ SetCompilerInfo call s:call('s:set_compiler_info', [<q-args>, '<bang>'])
     command! -nargs=+ -complete=custom,s:info_item_complete
-            \ SetDefaultInfo call Set_default_info(<q-args>)
+            \ SetDefaultInfo call s:call('s:set_default_info', [<q-args>])
+    command! -nargs=* -complete=customlist,s:info_name_complete -bar -count=0 
+	    \ ListCompiler call s:find_and_call('s:list_compiler', [<q-args>, <count>])
     command! -nargs=+ -complete=custom,s:info_item_complete -count=0
-	    \ AddFlags call s:ctk_call('s:add_flags', [<q-args>, <count>])
+	    \ AddFlags call s:find_and_call('s:add_flags', [<q-args>, <count>])
 
-    command! -nargs=? -bar -bang -count=0 CC call s:ctk_call('s:compile',
+    command! -nargs=? -bar -bang -count=0 CC call s:find_and_call('s:compile',
                 \ [<count>, <q-args>, <q-bang>])
-    command! -nargs=? -bar -bang -count=0 RUN call s:ctk_call('s:run',
+    command! -nargs=? -bar -bang -count=0 RUN call s:find_and_call('s:run',
                 \ [<count>, <q-args>, <q-bang>])
 
     map <silent> <Plug>CTK_compile :<C-U>exec v:count.'CC'<CR>
@@ -89,13 +89,11 @@ if !exists('g:loaded_ctk')
             au FileType * call s:delete_ci()
             exec 'run '.g:ctk_cinfo_file
             au FileType * call s:set_fname()
-
-            au FuncUndefined Set_compiler_info,Set_default_info
-                        \ exec 'so '.s:sfile
         augroup END
         map gc <Plug>CTK_compile
         map gC <Plug>CTK_run
     endfunction
+
     function! s:stop_ctk() " {{{3
         call s:delete_ci()
         unlet! b:ctk_fname b:{ctk_ext_var}
@@ -103,18 +101,35 @@ if !exists('g:loaded_ctk')
         unmap gc
         unmap gC
     endfunction
-    function! s:ctk_call(funcname, args) " {{{3
-        if s:find_source()
-            call call(a:funcname, a:args)
-        else
-            echohl Error
-            echom "command can't use, because ctk isn't avaliable"
-            echohl None
+
+    function! s:call(funcname, args) " {{{3
+        if !exists('s:load_all') || !s:load_all
+            exec 'so '.s:sfile
         endif
+
+        return call(a:funcname, a:args)
     endfunction
+
+    function! s:find_and_call(funcname, args) " {{{3
+        let cur_winnr = winnr()
+
+        while 1
+            if exists('b:compiler_info') 
+                return s:call(a:funcname, a:args)
+            endif
+            silent! wincmd w
+            if winnr() == cur_winnr | break | endif
+        endwhile
+
+        echohl Error
+        echom "command can't use, because ctk isn't avaliable"
+        echohl None
+    endfunction
+
     function! s:need_update() " {{{3
         return !exists('b:ctk_fname') || b:ctk_fname[1] != &ft
     endfunction
+
     function! s:delete_ci() " {{{3
         if s:need_update()
             unlet! b:{g:ctk_ext_var}
@@ -126,6 +141,7 @@ if !exists('g:loaded_ctk')
             endif
         endif
     endfunction
+
     function! s:set_fname() " {{{3
         if g:ctk_autofname == ''
             return
@@ -157,21 +173,6 @@ if !exists('g:loaded_ctk')
             call s:set_filename()
         endif
     endfunction
-function! s:find_source() " {{{3
-"    call Dfunc('s:find_source()')
-    let cur_winnr = winnr()
-
-    while 1
-        if exists(s:ci_name) 
-"            call Dret('s:find_source : success')
-            return 1 
-        endif
-        wincmd w
-        if winnr() == cur_winnr | break | endif
-    endwhile
-    call s:echoerr("Can't Find Source Window!")
-"    call Dret('s:find_source : fail')
-endfunction
 
 function! s:info_name_complete(A, L, P) " {{{3
     if !exists(s:ci_name) | return [] | endif
@@ -183,6 +184,7 @@ function! s:info_name_complete(A, L, P) " {{{3
     return sort(filter(list + ['all', 'default', 'current'],
                 \ 'v:val =~ '.pat))
 endfunction
+
 function! s:info_item_complete(A, L, P) " {{{3
     return "asm_\ncc\ncmd\ndebug_\nflags\n".
                 \ "input\noutput\nrun\ntitle"
@@ -195,6 +197,8 @@ endfunction " }}}3
     unlet s:cpo_save
     finish
 endif
+
+let s:load_all = 1
 
 " }}}1
 " some inner variables {{{1
@@ -327,7 +331,7 @@ function! s:expand_fname(fname, mode) " {{{2
 endfunction " }}}2
 
 " ============================================================
-function! Set_compiler_info(cmdarg, bang) " {{{1
+function! s:set_compiler_info(cmdarg, bang) " {{{1
     if !s:need_update() | return | endif
 "    call Dfunc('s:set_compiler_info(cmdarg = "'.a:cmdarg.'")')
     if !exists(s:ci_name)
@@ -403,7 +407,7 @@ function! Set_compiler_info(cmdarg, bang) " {{{1
 "    call Dret('s:set_compiler_info')
 endfunction
 
-function! Set_default_info(cmdarg) " {{{1
+function! s:set_default_info(cmdarg) " {{{1
     if !s:need_update() | return | endif
 "    call Dfunc('s:set_default_info(cmdarg = "'.a:cmdarg.'")')
     let def_info = {}
@@ -425,8 +429,9 @@ endfunction
 function! s:compile(count, entry, bang) " {{{1
     " find source buffer, and save it. if failed (return nonzero), echo
     " message and return 1 (failed, no use in this version)
-    if !s:find_source() || !s:save_source() ||
-                \ a:count < 0 || a:count > len(b:{s:ci}.list)
+    " NOTE: we find source in s:find_and_call() function, so we needn't find source
+    " again. 
+    if !s:save_source() || a:count < 0 || a:count > len(b:{s:ci}.list)
         redraw | echo 'Nothing Done'
         return 1
     endif
@@ -477,7 +482,6 @@ function! s:compile(count, entry, bang) " {{{1
 endfunction
 
 function! s:run(count, entry, bang) " {{{1
-    if !s:find_source() | return | endif
     let bufnr = bufnr('%')
     if (a:bang || &modified || !has_key(b:{s:ci}, 'cur_info')
                 \ || b:{s:ci}.cur_idx != (a:count - 1)
@@ -517,8 +521,6 @@ function! s:run(count, entry, bang) " {{{1
 endfunction
 
 function! s:add_flags(flags, count) " {{{1
-    if !s:find_source() | return | endif
-
     if a:count > 0 && a:count <= len(b:{s:ci}.list)
         let compiler = '-'.b:ctk.info[a:count - 1].name
     else
@@ -584,7 +586,6 @@ function! s:set_filename() " {{{1
 endfunction
 
 function! s:list_compiler(name, idx) " {{{1
-    if !s:find_source() | return | endif
     " offer index, just show the speciafied info
     if a:0 != 0 && a:1 != 0
         call s:show_list(b:{s:ci}.list[a:1])
