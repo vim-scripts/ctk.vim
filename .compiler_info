@@ -38,12 +38,19 @@ endfunction
 
 " Common default info {{{1
 
-au FileType c,cpp SetDefaultInfo
-    	\ cmd='!$cc $input $flags -o $output'
-    	\ run='!$output' input='%:.' output='%:t:r'
-    	\ asm_run=":call ctk:split_open(${q-output})"
-	\ asm_output='$output.asm'
-    	\ debug_run='!gdb -q $output'
+    au FileType c,cpp SetDefaultInfo
+	    \ cmd='!$cc $input $flags -o $output'
+	    \ run='!$output' input='%:.' output='%:t:r'
+	    \ asm_run=":call ctk:split_open(${q-output})"
+	    \ asm_output='$output.s'
+	    \ debug_run='!gdb -q $output'
+
+if has('unix')
+    au FileType c,cpp SetDefaultInfo asm_output='$output.s'
+else
+    au FileType c,cpp SetDefaultInfo asm_output='$output.asm'
+endif
+
 
 " filetype C {{{1
 
