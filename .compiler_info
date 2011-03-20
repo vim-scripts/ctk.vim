@@ -12,11 +12,16 @@ set cpo&vim
 " Common default info {{{1
 
 au FileType c,cpp SetDefaultInfo!
-	\ cmd='!$cc $input $flags -o $output'
+	\ cmd='!$cc $flags $input $libs -o $output'
 	\ run='!$output' input='%:.' output='%:t:r'
 	\ asm_run=":pedit $output"
 	\ asm_output='$output.s'
 	\ debug_run='!gdb -q $output'
+
+au FileType javascript,lua,m4,perl,python,ruby,scheme SetDefaultInfo!
+        \ cmd='#RUN_DIRECT'
+        \ run='!$cc $flags $src $args' src='%:.'
+        \ flags='' args=''
 
 if has('unix')
     au FileType c,cpp SetDefaultInfo asm_output='$output.s'
@@ -30,13 +35,13 @@ endif
 au FileType c SetExtensionName c
 au FileType c SetCompilerInfo! gcc
     	\ title='GNU C Compiler'
-    	\ cc='gcc' flags='-Wall' cmdmap='<m-c>' runmap='<m-1> <f5>'
+    	\ cc='gcc' flags='-Wall' libs='' cmdmap='<m-c>' runmap='<m-1> <f5>'
     	\ asm_title='GCC to ASM' asm_flags='-S $flags'
     	\ debug_title='GCC with debug' debug_flags='-ggdb $flags'
 
 au FileType c SetCompilerInfo! vc6  
     	\ title='Microsoft Visual C'
-    	\ cc='cl' flags='-W4' runmap='<m-2> <f6>'
+    	\ cc='cl' flags='-W4' libs='' runmap='<m-2> <f6>'
     	\ asm_title='Microsoft VC to ASM' asm_flags='/FAs $flags'
 
 " filetype C++ {{{1
@@ -44,52 +49,76 @@ au FileType c SetCompilerInfo! vc6
 au FileType cpp SetExtensionName cpp
 au FileType cpp SetCompilerInfo! g++
     	\ title='GNU Compiler Collection - C++'
-    	\ cc='g++' flags='-Wall' cmdmap='<m-c>' runmap='<m-1> <f5>'
+    	\ cc='g++' flags='-Wall' libs='' cmdmap='<m-c>' runmap='<m-1> <f5>'
     	\ asm_title='G++ to ASM' asm_flags='-S $flags'
     	\ debug_title='G++ with debug' debug_flags='-ggdb $flags'
 
 au FileType cpp SetCompilerInfo! vc++
     	\ title='Microsoft Visual C++'
-    	\ cc='cl' flags='-W4' runmap='<m-2> <f6>'
+    	\ cc='cl' flags='-W4' libs='' runmap='<m-2> <f6>'
     	\ asm_title='Microsoft VC++ to ASM'
     	\ asm_flags='/FAs $flags'
 
-" }}}1
+" filetype graphviz {{{1
+
+au FileType dot SetExtensionName dot
+au FileType dot SetCompilerInfo! dot
+	    \ title='graphviz(dot)' cc='dot' flags='-Tpng'
+	    \ cmd='$cc $flags $input -o $output.png'
+	    \ run='$output.png'
+
+" filetype javascript {{{1
+au filetype javascript SetExtensionName js
+au filetype javascript SetCompilerInfo! js
+	    \ title='glue' cc='glue'
+
 " filetype lua {{{1
 
 au FileType lua SetExtensionName lua
 au FileType lua SetCompilerInfo! lua
-	    \ title='lua' src='%:.'
-	    \ cmd="#RUN_DIRECT"
-	    \ run="lua $flags -- $src $args" args=''
-	    \ flags='' debug_flags=''
+	    \ title='lua' cc='lua' src='-- %:.'
+
+au FileType lua SetCompilerInfo! metalua
+	    \ title='metalua' cc='metalua'
+
+" filetype m4 {{{1
+
+au FileType m4 SetExtensionName m4
+au FileType m4 SetCompilerInfo! m4
+	    \ title='m4' cc='m4' src='-- %:.'
 
 " filetype perl {{{1
 
 au FileType perl SetExtensionName pl
 au FileType perl SetCompilerInfo! perl
-	    \ title='perl' src='%:.'
-	    \ cmd="#RUN_DIRECT"
-	    \ run="perl $flags -- $src $args" args=''
-	    \ flags='-w' debug_flags='-wd'
+	    \ title='perl' cc='perl' src='-- %:.'
 
 " filetype python {{{1
 
 au FileType python SetExtensionName py
 au FileType python SetCompilerInfo! python
-	    \ title='Python' src='%:.'
-	    \ cmd="#RUN_DIRECT"
-	    \ run="python $flags $src $args" args=''
-	    \ flags='-OO' debug_flags='-d'
+	    \ title='Python' cc='python'
+
+" filetype rst {{{1
+
+au FileType rest SetExtensionName rst
+au FileType rest SetCompilerInfo rst2html
+	    \ cc='rst2html' input='%:.' output='%:r.html'
+	    \ cmd='!$cc $flags $input $output' flags='--stylesheet=default.css --link-stylesheet'
+	    \ run='!"$output"'
+
 
 " filetype ruby {{{1
 
 au FileType ruby SetExtensionName rb
 au FileType ruby SetCompilerInfo! ruby
-	    \ title='Ruby 1.9.1 - Matz' src='%:.'
-	    \ cmd='#RUN_DIRECT'
-	    \ run='ruby $flags -- $src $args' args=''
-	    \ flags='-w' debug_flags='-rdebug $flags'
+            \ title='Ruby 1.9.1 - Matz' cc='ruby' src='-- %:.'
+
+" filetype scheme {{{1
+
+au FileType scheme SetExtensionName scm
+au FileType scheme SetCompilerInfo! chicken
+            \ title='chicken' cc='csi' flags='-q'
 
 " terminational works {{{1
 let &cpo = s:cpo_save

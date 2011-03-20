@@ -1,8 +1,8 @@
 " Script Nmame: code toolkit
 " File Name:    ctk.vim
 " Author:       StarWing
-" Version:      0.5
-" Last Change:  2010-01-28 20:53:29
+" Version:      0.6
+" Last Change:  2011-03-20 21:28:58
 " Note:         see :ctk for details
 " ======================================================{{{1
 
@@ -18,7 +18,7 @@ scriptencoding utf-8
 
 if !exists('g:loaded_ctk')
     " =================================================={{{2
-    let g:loaded_ctk = 'v0.4'
+    let g:loaded_ctk = 'v0.6'
 
     " options {{{2
     function! s:defopt(opt, val)
@@ -55,9 +55,9 @@ if !exists('g:loaded_ctk')
     command! -bar -bang StartCTK call s:start_ctk('<bang>')
     command! -bar StopCTK call s:stop_ctk()
     command! -bar RefreshCTK call s:refresh_ctk()
-    command! -bar EditCompilerInfo exec 'drop '.globpath(&rtp, g:ctk_cinfo_file)
+    command! -bar EditCompilerInfo exec 'drop '.escape(globpath(&rtp, g:ctk_cinfo_file), ' ')
                 \| au BufWritePost <buffer> call s:refresh_ctk()
-    
+
     command! -bar -nargs=1 SetExtensionName let b:{g:ctk_ext_var} = <q-args>
     command! -nargs=* -complete=custom,s:info_item_complete -bang
 	    \ SetCompilerInfo call s:call('s:set_compiler_info', [<q-args>, '<bang>'])
@@ -98,8 +98,10 @@ if !exists('g:loaded_ctk')
             au FileType * call s:call('s:set_fname', [])
         augroup END
 
-        map gc <C-\><C-N>:<C-U>exec v:count."CC!"<CR>
-        map gC <C-\><C-N>:<C-U>exec v:count."RUN"<CR>
+        map gc <C-\><C-N>:<C-U>exec v:prevcount."CC!"<CR>
+        map gC <C-\><C-N>:<C-U>exec v:prevcount."RUN"<CR>
+        sunm gc
+        sunm gC
 
         if a:bang == '!'
             call s:call('s:delete_ci', [])
@@ -204,13 +206,13 @@ let s:def_attr = {'cmd': ':echo "Done Nothing"', 'run': ':echo "Done Nothing"',
 " patterns {{{2
 
 let s:pat_cmd_is_shell = '\v^[^:]|^:!|^:sil%[ent]\s+!'
-let s:pat_cmdtag = '\v\$(\h\w*)|\$\{([Qq]-)=(\h\w*)}'
+let s:pat_cmdtag = '\v\c\\@<!\$%((\h\w*)|\{%(([q]+)-)=(\h\w*)})'
 let s:pat_com = ':\zs[^,]\+'
 let s:pat_com_begin = 's.\=:\zs[^,]\+\ze'
 let s:pat_com_end = 'e.\=:\zs[^,]\+\ze'
 let s:pat_execoutput = '\%^[\r\n]*\zs.\{-}\ze[\r\n]*\%$'
 let s:pat_exectag = '$exec\>'
-let s:pat_filespec = '\v%(\%|#%(\d+)=|##|<cword>|<cWORD>)%(:[p8~.htre]|g=s(.).\{-}\1.\{-}\1)*'
+let s:pat_filespec = '\v\\@<!%(\%|#%(\d+)=|##|<cword>|<cWORD>)%(:[p8~.htre]|g=s(.).\{-}\1.\{-}\1)*'
 let s:pat_filespec_escape = '\\\ze'.s:pat_filespec
 let s:pat_filespec_nonescape = '\\\@<!'.s:pat_filespec
 let s:pat_fname_escape = "[ \t\n*?[{`$\\%#''\"|!<]"
@@ -264,12 +266,19 @@ function! s:get_entry_val(entry, key, default) " {{{2
     let info = get(get(b:{s:ci}, 'status', {}), 'info', {})
     let key = (a:entry == '' ? a:key : a:entry.'_'.a:key)
 
-    return get(info, key,
-                \ get(default, key, a:entry == '' ?
-                \ get(s:def_attr, key, a:default) :
-                \ get(info, a:key,
-                \ get(default, a:key,
-                \ get(s:def_attr, a:key, a:default)))))
+    if a:entry != ''
+         let res = has_key(info, key) ? info[key]
+                     \ : has_key(default, key) ? default[key]
+                     \ : has_key(s:def_attr, key) ? s:def_attr[key] : 0
+         if type(res) != type(0)
+             let s:use_entry = 1
+             return res
+         endif
+     endif
+     let s:use_entry = 0
+     return has_key(info, a:key) ? info[a:key]
+                 \ : has_key(default, a:key) ? default[a:key]
+                 \ : has_key(s:def_attr, a:key) ? s:def_attr[a:key] : a:default
 endfunction
 
 function! s:get_info(name) " {{{2
@@ -310,33 +319,21 @@ function! s:sub_info(info) " {{{2
     let a:info[submatch(1)] = val.submatch(4)
 endfunction
 
-function! s:expand_var(entry, default) " {{{2
-    let key = submatch(1) == '' ? submatch(3) : submatch(1)
-    let val = s:get_entry_val(a:default ? '' : a:entry, key, submatch(0))
-
-"    call Decho('replace '.key.' to '.val)
-    if submatch(2) ==? 'q-'
-        let escape_val = escape(val, '\"')
-        return a:default ? escape_val : '"'.escape_val.'"'
-    endif
-
-    return val
-endfunction
-
 function! s:expand_env() " {{{2
     let key = submatch(1) == '' ? submatch(3) : submatch(1)
     let val = substitute(g:ctk_envvarfmt, '\<var\>', key, 'g')
 
 "    call Decho('replace '.key.' to '.val)
-    if submatch(2) ==? 'q-'
+    if submatch(2) =~? 'q' && eval('$'.key) =~ '\s'
         return '"'.val.'"'
     endif
+
     return val
 endfunction
 
 function! s:expand_fname(fname, mode) " {{{2
 "    call Dfunc('s:expand_fname(fname = '.a:fname.', mode = '.a:mode.')')
-    let fname = expand(a:fname)
+    let fname = expand(a:fname) . submatch(2)
 
     if a:mode == ':'
         let fname = exists('*fnameescape') ? fnameescape(fname)
@@ -360,8 +357,7 @@ function! s:expand_fname(fname, mode) " {{{2
 endfunction
 
 function! s:is_run_direct() " {{{2
-    return get(get(get(b:{s:ci}, 'status', {}),
-                \ 'info', {}), 'cmd', '') =~ s:pat_run_direct
+    return s:get_entry_val('', 'cmd', '') =~ s:pat_run_direct
 endfunction
 
 function! s:begin_setinfo() " {{{2
@@ -422,7 +418,7 @@ function! s:set_filename() " {{{2
     endif
 
 "    call Decho('ext = "'.ext.'"')
-    let tempdir = get(b:, 'ctk_tempdir', g:ctk_tempdir)
+    let tempdir = expand(get(b:, 'ctk_tempdir', g:ctk_tempdir))
     if !isdirectory(tempdir) && exists('*mkdir')
         call mkdir(tempdir, 'p')
     endif
@@ -515,14 +511,14 @@ function! s:make_info(info) " {{{2
         if last <= &mls * 2
             call s:read_modeline(cur_info, 1, last)
         else
-            call s:read_modeline(cur_info, 0, &mls)
+            call s:read_modeline(cur_info, 1, &mls)
             call s:read_modeline(cur_info, last - &mls, last)
         endif
         let b:{s:ci}.status.info = old_info
     endif
 
 "     call Dret('s:make_info : '.string(cur_info))
-     return cur_info
+    return cur_info
 endfunction
 
 function! s:make_cmd(cmd, entry, use_native) " {{{2
@@ -624,21 +620,56 @@ function! s:read_modeline(info, begin, end) " {{{2
 "    call Dret('s:read_modeline')
 endfunction
 
+function! s:process_var(text, entry, blacklist, quote) " {{{2
+"    call Dfunc('s:process_var('.a:text.', '.a:entry.', '.a:blacklist.', '.a:quote.')')
+    let text = ''
+
+    let cache = {}
+    for piece in split(a:text, '\ze'.s:pat_cmdtag)
+        let mlist = matchlist(piece, '^'.s:pat_cmdtag)
+        while 1 | if empty(mlist) | break | endif
+
+        let key = mlist[1] == '' ? mlist[3] : mlist[1]
+        if !has_key(cache, key)
+            let level = get(a:blacklist, key, 0)
+            if level == 2 | break | endif
+
+            let val = s:get_entry_val(level == 0 ? a:entry : "", key, 0)
+            if type(val) != type(0)
+                let a:blacklist[key] = 2 - s:use_entry
+                let cache[key] = s:process_var(val, a:entry,
+                            \ a:blacklist, a:quote || mlist[2] =~? 'q')
+                let a:blacklist[key] = level
+            endif
+        endif
+
+"        call Decho('cache = '.string(cache).', key = '.key)
+        if a:quote == 0 && mlist[2] =~? 'q' && cache[key] =~ '\s'
+            let piece = '"'.cache[key].'"'.piece[strlen(mlist[0]):]
+        else
+            let piece = cache[key].piece[strlen(mlist[0]):]
+        endif
+
+        break | endwhile
+        let text .= piece
+    endfor
+
+"    call Dret('s:process_var : '.text)
+    return text
+endfunction
+
 function! s:process_placeholder(cmd, entry) " {{{2
 "    call Dfunc('s:process_placeholder(cmd = '.a:cmd.', entry = '.a:entry.')')
-    let cmd = a:cmd
 
-    let cmd = substitute(cmd, s:pat_cmdtag, '\=s:expand_var(a:entry, 0)', 'g')
-    if a:entry != ''
-        let cmd = substitute(cmd, s:pat_cmdtag, '\=s:expand_var(a:entry, 1)', 'g')
-    endif
-    let cmd = substitute(cmd, s:pat_filespec_nonescape,
+    let cmd = s:process_var(a:cmd, a:entry, {}, 0)
+    let cmd = substitute(cmd, s:pat_filespec_nonescape.'\v(\S*)',
                 \ '\=s:expand_fname(submatch(0), cmd[0])', 'g')
 
     let cmd = substitute(cmd, s:pat_filespec_escape, '', 'g')
     if g:ctk_envvarfmt != ''
         let cmd = substitute(cmd, s:pat_cmdtag, '\=s:expand_env()', 'g')
     endif
+    let cmd = substitute(cmd, '\\\ze[$%#<]', '', 'g')
 
 "    call Dret('s:process_placeholder : '.cmd)
     return cmd
@@ -861,8 +892,9 @@ function! s:compile(count, entry, bang) " {{{1
             let res = iconv(res, g:ctk_cmdenc, &enc)
         endif
 
-        cgetexpr [msg, cmd, ''] + split(res, "\<NL>")
+        let cmdres = [msg, cmd, ''] + split(res, "\<NL>")
                     \ + [stat.info.name.' returned '.ret_val]
+        cgetexpr cmdres
         exec v:shell_error == 0 ? 'cwindow' : 
                     \ (res == '' ? 'cclose' : 'copen')
 
@@ -882,7 +914,11 @@ function! s:run(count, entry, bang) " {{{1
                 \ ', bang = '.a:bang.')')
 
     let bufnr = bufnr('%')
-    if !s:is_run_direct() && s:compile(a:count, a:entry, a:bang) | return 1 | endif
+    if s:is_run_direct()
+        if &mod | call s:save_source() | endif
+    elseif s:compile(a:count, a:entry, a:bang) 
+        return 1 
+    endif
     exec bufwinnr(bufnr).'wincmd w'
 
     " use locale program
